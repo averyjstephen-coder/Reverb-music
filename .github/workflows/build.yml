@@ -1,0 +1,38 @@
+name: Build Aurora
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test DSP core
+        run: |
+          cd tests
+          clang++ -std=c++17 -O2 -I../Source dsp_test.cpp -o dsp_test
+          ./dsp_test
+
+      - name: Configure
+        run: cmake -B build -G Xcode
+
+      - name: Build (Release)
+        run: cmake --build build --config Release
+
+      - name: Ad-hoc sign and package
+        run: |
+          mkdir -p dist
+          cp -R build/Aurora_artefacts/Release/AU/Aurora.component dist/
+          cp -R build/Aurora_artefacts/Release/VST3/Aurora.vst3 dist/
+          codesign --force --deep -s - dist/Aurora.component
+          codesign --force --deep -s - dist/Aurora.vst3
+          cd dist && zip -qr ../Aurora-macOS.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aurora-macOS
+          path: Aurora-macOS.zip
